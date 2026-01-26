@@ -3,10 +3,10 @@ import pendulum
 import os
 from airflow.decorators import dag, task
 from airflow.providers.standard.operators.empty import EmptyOperator
-from operators import StageOperator
+from operators import StageOperator, StageToRedshiftOperator
 # from operators import (StageToRedshiftOperator, LoadFactOperator,
 #                        LoadDimensionOperator, DataQualityOperator)
-from helpers import SqlQueries
+from helpers import SqlQueries, S3VariableManager
 
 default_args = {
     'owner': 'udacity',
@@ -24,6 +24,7 @@ default_args = {
     schedule='@hourly'      # equivalent to '0 * * * *'
 )
 def final_project():
+    conn_id = 'redshift'
     sql_queries = SqlQueries()
 
     ###### DAG run starts here ######
@@ -36,8 +37,30 @@ def final_project():
 
     create_staging_tables = StageOperator(
         task_id='create_staging_tables',
-        conn_id='redshift',
+        conn_id=conn_id,
         sql=create_staging_tables_queries
+    )
+
+    # staging: load data as-is
+    s3_bucket_key = 's3_bucket'
+
+    ## get S3 configs from Airflow
+    s3_var_manager = S3VariableManager(s3_bucket_key)
+
+    s3_bucket = s3_var_manager.get_bucket_name()
+    s3_song_dir = s3_var_manager.get_dir_prefix('s3_object_song_prefix')
+    s3_events_dir = s3_var_manager.get_dir_prefix('s3_object_log_prefix')
+
+    stg_table_s3_folder_mapping = {
+        'songs_staging': s3_song_dir,
+        'events_staging': s3_events_dir
+    }
+    
+    stg_to_redshift_op = StageToRedshiftOperator(
+        task_id='stage_to_redshift',
+        conn_id=conn_id,
+        s3_bucket=s3_bucket, 
+        stg_s3_folder_mapping=stg_table_s3_folder_mapping
     )
 
     # stage_events_to_redshift = StageToRedshiftOperator(
@@ -76,6 +99,6 @@ def final_project():
     # test_task = test()
 
     # dependencies
-    start_operator >> create_staging_tables
+    start_operator >> create_staging_tables >> stg_to_redshift_op
 
 final_project_dag = final_project()

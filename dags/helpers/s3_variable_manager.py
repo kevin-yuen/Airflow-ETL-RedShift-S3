@@ -12,4 +12,4 @@ class S3VariableManager():
     def get_dir_prefix(self, s3_dir_key):
         # get directory name
         return Variable.get(s3_dir_key)
-         
+

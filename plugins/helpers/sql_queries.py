@@ -52,14 +52,14 @@ class SqlQueries:
     create_songs_staging_table = """
     CREATE TABLE songs_staging (
         song_id VARCHAR,
-        num_songs INT4,
+        num_songs INT,
         title VARCHAR,
         artist_name VARCHAR,
-        artist_latitude NUMERIC,
-        year INT4,
-        duration NUMERIC,
+        artist_latitude FLOAT,
+        year INT,
+        duration FLOAT,
         artist_id VARCHAR,
-        artist_longitude NUMERIC, 
+        artist_longitude FLOAT, 
         artist_location VARCHAR
     );
     """
@@ -70,19 +70,31 @@ class SqlQueries:
         auth VARCHAR,
         firstName VARCHAR,
         gender VARCHAR,
-        itemInSession INT4,
+        itemInSession INT,
         lastName VARCHAR,
-        length NUMERIC,
+        length FLOAT,
         level VARCHAR,
         location VARCHAR,
         method VARCHAR,
         page VARCHAR,
-        registration NUMERIC,
-        sessionId INT4,
+        registration BIGINT,
+        sessionId INT,
         song VARCHAR,
-        status INT4,
-        ts INT8,
+        status INT,
+        ts BIGINT,
         userAgent VARCHAR,
-        userId INT4
+        userId INT
     );
     """
+
+    @staticmethod
+    def copy_s3_to_staging(staging_table, src_path_data, iam_role, src_path_mapping):
+        copy_s3_to_staging = f"""
+        COPY {staging_table}
+        FROM '{src_path_data}'
+        IAM_ROLE '{iam_role}'
+        FORMAT AS JSON '{src_path_mapping}'
+        REGION 'us-east-1'
+        """
+
+        return copy_s3_to_staging

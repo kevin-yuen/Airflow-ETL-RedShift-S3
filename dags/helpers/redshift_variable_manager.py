@@ -8,3 +8,7 @@ class RedshiftVariableManager():
     def get_mapping_config(self, mapping_key):
         # get column mapping config for staging data
         return Variable.get(mapping_key)
+    
+    def get_ds_name(self, ds_key):
+        # get staging dataset name
+        return Variable.get(ds_key)

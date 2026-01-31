@@ -1,5 +1,6 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import BaseOperator, Variable
+from airflow.exceptions import AirflowException
 from helpers import SqlQueries, RedshiftVariableManager
 import boto3
 
@@ -36,6 +37,9 @@ class StageToRedshiftOperator(BaseOperator):
         for page in paginator.paginate(Bucket=f'{self.s3_bucket}'):
             contents.extend(page['Contents'])
 
+        if not contents:
+            raise AirflowException(f'No objects found in s3://{self.s3_bucket}.')
+
         filtered_s3_subdir = list(
             set(
                 [
@@ -45,9 +49,13 @@ class StageToRedshiftOperator(BaseOperator):
             )
         )
 
+        if not filtered_s3_subdir:
+            raise AirflowException(f'No objects found after data type filtering.')
+
         self.log.info(f"Starting COPY from S3 to Redshift staging table '{self.staging_table}'.")
 
-        for subdir in filtered_s3_subdir[0:1]:                      # TO BE REMOVED: COPY THE OBJECTS FROM THE FIRST DIRECTORY FOR TESTING/DEBUGGING ONLY
+        for subdir in filtered_s3_subdir[0:1]:              # [0:1] FOR TESTING / DEBUGGING PURPOSES ONLY
+        # for subdir in filtered_s3_subdir:
             s3_bucket_path = f's3://{self.s3_bucket}'
             src_path_data = f'{s3_bucket_path}/{self.s3_dir}/{subdir}/'
             src_path_mapping = f'{s3_bucket_path}/{self.staging_col_mapping_config}.json'

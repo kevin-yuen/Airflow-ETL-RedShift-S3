@@ -3,7 +3,7 @@ import pendulum
 import os
 from airflow.decorators import dag, task
 from airflow.providers.standard.operators.empty import EmptyOperator
-from operators import CreateStageOperator, StageToRedshiftOperator
+from operators import CreateStageOperator, StageToRedshiftOperator, StagingDataQualityOperator
 # from operators import (StageToRedshiftOperator, LoadFactOperator,
 #                        LoadDimensionOperator, DataQualityOperator)
 from helpers import SqlQueries, S3VariableManager, RedshiftVariableManager
@@ -59,15 +59,18 @@ def final_project():
 
     songs_stage_col_mapping_config = redshift_var_mgr.get_mapping_config('staging_song_col_mapping')
     events_stage_col_mapping_config = redshift_var_mgr.get_mapping_config('staging_events_col_mapping')
+
+    songs_stage_ds_name = redshift_var_mgr.get_ds_name('staging_song_ds_name')
+    events_stage_ds_name = redshift_var_mgr.get_ds_name('staging_events_ds_name')
     
     stg_songs_to_redshift = StageToRedshiftOperator(
         task_id='stage_songs_to_redshift',
         conn_id=conn_id,
         s3_bucket=s3_bucket, 
         s3_dir=s3_songs_dir,
-        staging_table='songs_staging',
+        staging_table=songs_stage_ds_name,
         include_filter=False,      # get objects from non-'log-data' folder
-        staging_col_mapping_config = songs_stage_col_mapping_config
+        staging_col_mapping_config = songs_stage_col_mapping_config,
     )
 
     stg_events_to_redshift = StageToRedshiftOperator(
@@ -75,10 +78,35 @@ def final_project():
         conn_id=conn_id,
         s3_bucket=s3_bucket,
         s3_dir=s3_events_dir,
-        staging_table='events_staging',
+        staging_table=events_stage_ds_name,
         include_filter=True,       # get objects from 'log-data' folder
-        staging_col_mapping_config = events_stage_col_mapping_config
+        staging_col_mapping_config = events_stage_col_mapping_config,
     )
+
+    # post-staging data quality check
+    stg_songs_dq_check = StagingDataQualityOperator(
+        task_id='stage_songs_dq_check',
+        conn_id=conn_id,
+        dq_type=['row_count_check', 'null_count_check', 'uniqueness_count_check'],
+        ds_name=songs_stage_ds_name,
+        ds_columns=['song_id', 'artist_id']
+    )
+
+    stg_events_dq_check = StagingDataQualityOperator(
+        task_id='stage_events_dq_check',
+        conn_id=conn_id,
+        dq_type=['row_count_check', 'null_count_check'],
+        ds_name=events_stage_ds_name,
+        ds_columns=['sessionid', 'ts']
+    )
+
+
+    
+
+# 2. As long as the staging table has more than 0 rows after COPY, pass the staging sanity check. 
+# 3. null check on critical columns like primary keys, foreign keys, partition keys, timestamps 
+# 4. uniqueness checks for natural keys (ID) columns
+
 
     # stage_events_to_redshift = StageToRedshiftOperator(
     #     task_id='Stage_events',
@@ -117,8 +145,8 @@ def final_project():
 
     # dependencies
     start_operator >> [
-        create_songs_staging_table >> stg_songs_to_redshift,
-        create_events_staging_tble >> stg_events_to_redshift
+        create_songs_staging_table >> stg_songs_to_redshift >> stg_songs_dq_check,
+        create_events_staging_tble >> stg_events_to_redshift >> stg_events_dq_check
     ]
 
 final_project_dag = final_project()

@@ -98,4 +98,35 @@ class SqlQueries:
         """
 
         return copy_s3_to_staging
+    
+    @staticmethod
+    def check_row_cnt(staging_table):
+        row_count_sql = f"""SELECT COUNT(*) FROM {staging_table}"""
+
+        return row_count_sql
+    
+    @staticmethod
+    def check_nulls(staging_table, cond_stmt):
+        # check nulls on critical columns
+        null_cnt_sql = f"""
+        SELECT COUNT(*)
+        FROM {staging_table}
+        WHERE {cond_stmt}
+        """
+
+        return null_cnt_sql
+    
+    @staticmethod
+    def check_uniqueness(staging_table, cols):
+        # check uniqueness on critical columns that form the composite natural key
+        uniqueness_cnt_sql = f"""
+        SELECT COUNT(*)
+        FROM (
+            SELECT {cols}
+            FROM {staging_table}
+            GROUP BY {cols}
+            HAVING COUNT(*) > 1
+        )
+        """
+        return uniqueness_cnt_sql
 

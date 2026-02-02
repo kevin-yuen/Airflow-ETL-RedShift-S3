@@ -32,7 +32,7 @@ class StageToRedshiftOperator(BaseOperator):
     def execute(self, context):
         paginator = self.s3.get_paginator('list_objects_v2')
         contents = []
-        pg_hook = PostgresHook(postgres_conn_id='redshift')
+        pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
 
         for page in paginator.paginate(Bucket=f'{self.s3_bucket}'):
             contents.extend(page['Contents'])

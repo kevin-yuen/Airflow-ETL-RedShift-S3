@@ -1,44 +1,65 @@
 class SqlQueries:
     songplay_table_insert = ("""
         SELECT
-                md5(events.sessionid || events.start_time) songplay_id,
-                events.start_time, 
-                events.userid, 
-                events.level, 
-                songs.song_id, 
-                songs.artist_id, 
-                events.sessionid, 
-                events.location, 
-                events.useragent
-                FROM (SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' AS start_time, *
-            FROM staging_events
-            WHERE page='NextSong') events
-            LEFT JOIN staging_songs songs
-            ON events.song = songs.title
-                AND events.artist = songs.artist_name
-                AND events.length = songs.duration
+            md5(events.sessionid || events.start_time) songplay_id,
+            events.start_time, 
+            events.userid, 
+            events.level, 
+            songs.song_id, 
+            songs.artist_id, 
+            events.sessionid, 
+            events.location, 
+            events.useragent
+            FROM (SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' AS start_time, *
+        FROM events_staging
+        WHERE page='NextSong') events
+        LEFT JOIN songs_staging songs
+        ON events.song = songs.title
+            AND events.artist = songs.artist_name
+            AND events.length = songs.duration
     """)
 
     user_table_insert = ("""
-        SELECT distinct userid, firstname, lastname, gender, level
-        FROM staging_events
+        SELECT DISTINCT
+            userid,
+            firstname,
+            lastname,
+            gender,
+            level
+        FROM events_staging
         WHERE page='NextSong'
     """)
 
     song_table_insert = ("""
-        SELECT distinct song_id, title, artist_id, year, duration
-        FROM staging_songs
+        SELECT DISTINCT
+            song_id, 
+            title, 
+            artist_id,
+            year,
+            duration
+        FROM songs_staging
     """)
 
     artist_table_insert = ("""
-        SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude
-        FROM staging_songs
+        SELECT DISTINCT
+            artist_id,
+            artist_name,
+            artist_location,
+            artist_latitude,
+            artist_longitude
+        FROM songs_staging
     """)
 
     time_table_insert = ("""
-        SELECT start_time, extract(hour from start_time), extract(day from start_time), extract(week from start_time), 
-               extract(month from start_time), extract(year from start_time), extract(dayofweek from start_time)
-        FROM songplays
+        SELECT
+            start_time,
+            EXTRACT(hour FROM start_time),
+            EXTRACT(day FROM start_time),
+            EXTRACT(week FROM start_time), 
+            EXTRACT(month FROM start_time),
+            EXTRACT(year FROM start_time),
+            EXTRACT(dayofweek FROM start_time)
+        FROM songplays_fact
     """)
 
     drop_songs_staging_table = """
@@ -129,4 +150,22 @@ class SqlQueries:
         )
         """
         return uniqueness_cnt_sql
+    
+    drop_songplays_fact_table = """
+    DROP TABLE IF EXISTS songplays_fact;
+    """
+
+    create_songplays_fact_table = """
+    CREATE TABLE songplays_fact (
+        playid varchar(32) NOT NULL,
+        start_time timestamp NOT NULL,
+        userid int4 NOT NULL,
+        "level" varchar(256),
+        songid varchar(256),
+        artistid varchar(256),
+        sessionid int4,
+        location varchar(256),
+        user_agent varchar(256)
+    );
+    """
 

@@ -13,7 +13,7 @@ class StagingDataQualityOperator(BaseOperator):
         self.ds_columns = ds_columns
 
     def execute(self, context):
-        pg_hook = PostgresHook(postgres_conn_id='redshift')
+        pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
 
         for dq_type in self.dq_type:
             match dq_type:

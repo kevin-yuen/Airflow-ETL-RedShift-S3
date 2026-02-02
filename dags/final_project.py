@@ -1,12 +1,16 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import pendulum
-import os
-from airflow.decorators import dag, task
+from airflow.decorators import dag
 from airflow.providers.standard.operators.empty import EmptyOperator
-from operators import CreateStageOperator, StageToRedshiftOperator, StagingDataQualityOperator
-# from operators import (StageToRedshiftOperator, LoadFactOperator,
-#                        LoadDimensionOperator, DataQualityOperator)
 from helpers import SqlQueries, S3VariableManager, RedshiftVariableManager
+from operators import (
+    CreateStageOperator,
+    StageToRedshiftOperator,
+    StagingDataQualityOperator,
+    CreateFactOperator,
+    LoadFactOperator
+)
+
 
 default_args = {
     'owner': 'udacity',
@@ -100,13 +104,22 @@ def final_project():
         ds_columns=['sessionid', 'ts']
     )
 
+    # data loading: fact table
+    create_songplays_fact_table_queries = sql_queries.drop_songplays_fact_table + sql_queries.create_songplays_fact_table
+    songplays_fact_ds_name = redshift_var_mgr.get_ds_name('fact_songplays_ds_name')
 
-    
+    create_songplays_fact_table = CreateFactOperator(
+        task_id='create_songplays_fact_table',
+        conn_id=conn_id,
+        sql=create_songplays_fact_table_queries
+    )
 
-# 2. As long as the staging table has more than 0 rows after COPY, pass the staging sanity check. 
-# 3. null check on critical columns like primary keys, foreign keys, partition keys, timestamps 
-# 4. uniqueness checks for natural keys (ID) columns
-
+    load_songplays_fact_table = LoadFactOperator(
+        task_id='load_songplays_fact_table',
+        conn_id=conn_id,
+        ds_name=songplays_fact_ds_name,
+        sql=sql_queries.songplay_table_insert
+    )
 
     # stage_events_to_redshift = StageToRedshiftOperator(
     #     task_id='Stage_events',
@@ -147,6 +160,7 @@ def final_project():
     start_operator >> [
         create_songs_staging_table >> stg_songs_to_redshift >> stg_songs_dq_check,
         create_events_staging_tble >> stg_events_to_redshift >> stg_events_dq_check
-    ]
+    ] >> create_songplays_fact_table >> \
+        load_songplays_fact_table
 
 final_project_dag = final_project()

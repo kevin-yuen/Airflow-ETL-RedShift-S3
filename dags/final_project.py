@@ -8,7 +8,8 @@ from operators import (
     StageToRedshiftOperator,
     StagingDataQualityOperator,
     CreateFactOperator,
-    LoadFactOperator
+    LoadFactOperator,
+    FactDataQualityOperator
 )
 
 
@@ -121,6 +122,15 @@ def final_project():
         sql=sql_queries.songplay_table_insert
     )
 
+    # data quality check on fact table
+    fact_dq_check = FactDataQualityOperator(
+        task_id='fact_dq_check',
+        conn_id=conn_id,
+        dq_type=['reasonableness_check', 'uniqueness_cnt_check_fact', 'non_null_check'],
+        ds_name=songplays_fact_ds_name,
+        ds_columns=['songplay_id', 'start_time', 'sessionid', 'userid']
+    )
+
     # stage_events_to_redshift = StageToRedshiftOperator(
     #     task_id='Stage_events',
     # )
@@ -161,6 +171,7 @@ def final_project():
         create_songs_staging_table >> stg_songs_to_redshift >> stg_songs_dq_check,
         create_events_staging_tble >> stg_events_to_redshift >> stg_events_dq_check
     ] >> create_songplays_fact_table >> \
-        load_songplays_fact_table
+        load_songplays_fact_table >> \
+        fact_dq_check
 
 final_project_dag = final_project()

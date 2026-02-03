@@ -18,7 +18,7 @@ class StagingDataQualityOperator(BaseOperator):
         for dq_type in self.dq_type:
             match dq_type:
                 case 'row_count_check':
-                    row_cnt_sql = SqlQueries.check_row_cnt(self.ds_name)
+                    row_cnt_sql = SqlQueries.check_row_cnt(ds=self.ds_name)
                     row_cnt_result = pg_hook.get_first(row_cnt_sql)[0]
 
                     if row_cnt_result == 0:
@@ -27,7 +27,7 @@ class StagingDataQualityOperator(BaseOperator):
                         self.log.info(f'{self.ds_name} staging has rows.')
                 case 'null_count_check':
                     where_cond_stmts = ' OR '.join([f'{col} IS NULL' for col in self.ds_columns])
-                    null_cnt_sql = SqlQueries.check_nulls(self.ds_name, where_cond_stmts)
+                    null_cnt_sql = SqlQueries.check_row_cnt(ds=self.ds_name, cond_stmt=where_cond_stmts)   # check nulls on critical columns
                     null_cnt_result = pg_hook.get_first(null_cnt_sql)[0]
 
                     if null_cnt_result > 0:

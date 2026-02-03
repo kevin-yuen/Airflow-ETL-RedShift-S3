@@ -63,11 +63,11 @@ class SqlQueries:
     """)
 
     drop_songs_staging_table = """
-    DROP TABLE IF EXISTS songs_staging;
+    DROP TABLE IF EXISTS songs_staging CASCADE;
     """
 
     drop_events_staging_table = """
-    DROP TABLE IF EXISTS events_staging;
+    DROP TABLE IF EXISTS events_staging CASCADE;
     """
 
     create_songs_staging_table = """
@@ -121,21 +121,14 @@ class SqlQueries:
         return copy_s3_to_staging
     
     @staticmethod
-    def check_row_cnt(staging_table):
-        row_count_sql = f"""SELECT COUNT(*) FROM {staging_table}"""
+    def check_row_cnt(ds, cnt_method='*', cond_stmt=''):
+        row_count_sql = f"""SELECT COUNT({cnt_method}) FROM {ds}"""
+
+        if cond_stmt != '':
+            cond_stmt = f'WHERE {cond_stmt}'
+            row_count_sql = row_count_sql + ' ' + cond_stmt
 
         return row_count_sql
-    
-    @staticmethod
-    def check_nulls(staging_table, cond_stmt):
-        # check nulls on critical columns
-        null_cnt_sql = f"""
-        SELECT COUNT(*)
-        FROM {staging_table}
-        WHERE {cond_stmt}
-        """
-
-        return null_cnt_sql
     
     @staticmethod
     def check_uniqueness(staging_table, cols):
@@ -152,12 +145,12 @@ class SqlQueries:
         return uniqueness_cnt_sql
     
     drop_songplays_fact_table = """
-    DROP TABLE IF EXISTS songplays_fact;
+    DROP TABLE IF EXISTS songplays_fact CASCADE;
     """
 
     create_songplays_fact_table = """
     CREATE TABLE songplays_fact (
-        playid varchar(32) NOT NULL,
+        songplay_id varchar(32) NOT NULL,
         start_time timestamp NOT NULL,
         userid int4 NOT NULL,
         "level" varchar(256),

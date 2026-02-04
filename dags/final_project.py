@@ -9,7 +9,9 @@ from operators import (
     StagingDataQualityOperator,
     CreateFactOperator,
     LoadFactOperator,
-    FactDataQualityOperator
+    FactDataQualityOperator,
+    CreateDimensionOperator,
+    LoadDimensionOperator
 )
 
 
@@ -19,14 +21,17 @@ default_args = {
     'start_date': pendulum.datetime(2026, 1, 1, tz='UTC'),
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
-    'catchup': False
+    'catchup': False,
 }
 
 @dag(
     dag_id='airflow-etl-redshift-s3-data-pipeline',
     default_args=default_args,
     description='Load and transform data in Redshift with Airflow',
-    schedule='@hourly'      # equivalent to '0 * * * *'
+    schedule='@hourly',      # equivalent to '0 * * * *'
+    params={
+        'drop_table': False
+    }
 )
 def final_project():
     conn_id = 'redshift'
@@ -36,20 +41,26 @@ def final_project():
     ###### DAG run starts here ######
     start_operator = EmptyOperator(task_id='Begin_execution')
 
-    # create tables prior to staging
-    create_songs_staging_table_queries = sql_queries.drop_songs_staging_table + sql_queries.create_songs_staging_table
-    create_events_staging_table_queries = sql_queries.drop_events_staging_table + sql_queries.create_events_staging_table
+    # create staging tables (if not exists)
+    songs_stage_ds_name = redshift_var_mgr.get_ds_name('staging_song_ds_name')
+    events_stage_ds_name = redshift_var_mgr.get_ds_name('staging_events_ds_name')
 
     create_songs_staging_table = CreateStageOperator(
         task_id='create_songs_staging_table',
         conn_id=conn_id,
-        sql=create_songs_staging_table_queries
+        sql=sql_queries.create_songs_staging_table,
+        parameters={
+            'dataset_name': songs_stage_ds_name
+        }
     )
 
     create_events_staging_tble = CreateStageOperator(
         task_id='create_events_staging_table',
         conn_id=conn_id,
-        sql=create_events_staging_table_queries
+        sql=sql_queries.create_events_staging_table,
+        parameters={
+            'dataset_name': events_stage_ds_name
+        }
     )
 
     # staging: load data as-is
@@ -64,9 +75,6 @@ def final_project():
 
     songs_stage_col_mapping_config = redshift_var_mgr.get_mapping_config('staging_song_col_mapping')
     events_stage_col_mapping_config = redshift_var_mgr.get_mapping_config('staging_events_col_mapping')
-
-    songs_stage_ds_name = redshift_var_mgr.get_ds_name('staging_song_ds_name')
-    events_stage_ds_name = redshift_var_mgr.get_ds_name('staging_events_ds_name')
     
     stg_songs_to_redshift = StageToRedshiftOperator(
         task_id='stage_songs_to_redshift',
@@ -106,13 +114,15 @@ def final_project():
     )
 
     # data loading: fact table
-    create_songplays_fact_table_queries = sql_queries.drop_songplays_fact_table + sql_queries.create_songplays_fact_table
     songplays_fact_ds_name = redshift_var_mgr.get_ds_name('fact_songplays_ds_name')
 
     create_songplays_fact_table = CreateFactOperator(
         task_id='create_songplays_fact_table',
         conn_id=conn_id,
-        sql=create_songplays_fact_table_queries
+        sql=sql_queries.create_songplays_fact_table,
+        parameters={
+            'dataset_name': songplays_fact_ds_name
+        }
     )
 
     load_songplays_fact_table = LoadFactOperator(
@@ -131,40 +141,85 @@ def final_project():
         ds_columns=['songplay_id', 'start_time', 'sessionid', 'userid']
     )
 
-    # stage_events_to_redshift = StageToRedshiftOperator(
-    #     task_id='Stage_events',
-    # )
+    # data loading: dim tables    
+    artists_dim_ds_name = redshift_var_mgr.get_ds_name('dim_artists_ds_name')
+    songs_dim_ds_name = redshift_var_mgr.get_ds_name('dim_songs_ds_name')
+    time_dim_ds_name = redshift_var_mgr.get_ds_name('dim_time_ds_name')
+    users_dim_ds_name = redshift_var_mgr.get_ds_name('dim_users_ds_name')
 
-    # stage_songs_to_redshift = StageToRedshiftOperator(
-    #     task_id='Stage_songs',
-    # )
+    load_mode = redshift_var_mgr.get_dim_load_mode('dim_load_mode')
 
-    # load_songplays_table = LoadFactOperator(
-    #     task_id='Load_songplays_fact_table',
-    # )
+    create_artists_dim_table = CreateDimensionOperator(
+        task_id='create_artists_dim_table',
+        conn_id=conn_id,
+        sql=sql_queries.create_artists_dim_table,
+        parameters={
+            'dataset_name': artists_dim_ds_name,
+            'mode': load_mode
+        }
+    )
 
-    # load_user_dimension_table = LoadDimensionOperator(
-    #     task_id='Load_user_dim_table',
-    # )
+    load_artists_dim_table = LoadDimensionOperator(
+        task_id='load_artists_dim_table',
+        conn_id=conn_id,
+        ds_name=artists_dim_ds_name,
+        sql=sql_queries.artist_table_insert
+    )
 
-    # load_song_dimension_table = LoadDimensionOperator(
-    #     task_id='Load_song_dim_table',
-    # )
+    create_songs_dim_table = CreateDimensionOperator(
+        task_id='create_songs_dim_table',
+        conn_id=conn_id,
+        sql=sql_queries.create_songs_dim_table,
+        parameters={
+            'dataset_name': songs_dim_ds_name,
+            'mode': load_mode
+        }
+    )
 
-    # load_artist_dimension_table = LoadDimensionOperator(
-    #     task_id='Load_artist_dim_table',
-    # )
+    load_songs_dim_table = LoadDimensionOperator(
+        task_id='load_songs_dim_table',
+        conn_id=conn_id,
+        ds_name=songs_dim_ds_name,
+        sql=sql_queries.song_table_insert
+    )
 
-    # load_time_dimension_table = LoadDimensionOperator(
-    #     task_id='Load_time_dim_table',
-    # )
+    create_time_dim_table = CreateDimensionOperator(
+        task_id='create_time_dim_table',
+        conn_id=conn_id,
+        sql=sql_queries.create_time_dim_table,
+        parameters={
+            'dataset_name': time_dim_ds_name,
+            'mode': load_mode
+        }
+    )
 
-    # run_quality_checks = DataQualityOperator(
-    #     task_id='Run_data_quality_checks',
-    # )
+    load_time_dim_table = LoadDimensionOperator(
+        task_id='load_time_dim_table',
+        conn_id=conn_id,
+        ds_name=time_dim_ds_name,
+        sql=sql_queries.time_table_insert
+    )
 
-    # pipelines
-    # test_task = test()
+    create_users_dim_table = CreateDimensionOperator(
+        task_id='create_users_dim_table',
+        conn_id=conn_id,
+        sql=sql_queries.create_users_dim_table,
+        parameters={
+            'dataset_name': users_dim_ds_name,
+            'mode': load_mode
+        }
+    )
+
+    load_users_dim_table = LoadDimensionOperator(
+        task_id='load_users_dim_table',
+        conn_id=conn_id,
+        ds_name=users_dim_ds_name,
+        sql=sql_queries.user_table_insert
+    )
+
+    # # run_quality_checks = DataQualityOperator(
+    # #     task_id='Run_data_quality_checks',
+    # # )
 
     # dependencies
     start_operator >> [
@@ -172,6 +227,11 @@ def final_project():
         create_events_staging_tble >> stg_events_to_redshift >> stg_events_dq_check
     ] >> create_songplays_fact_table >> \
         load_songplays_fact_table >> \
-        fact_dq_check
+        fact_dq_check >> [
+            create_artists_dim_table >> load_artists_dim_table,
+            create_songs_dim_table >> load_songs_dim_table,
+            create_time_dim_table >> load_time_dim_table,
+            create_users_dim_table >> load_users_dim_table
+        ]
 
 final_project_dag = final_project()

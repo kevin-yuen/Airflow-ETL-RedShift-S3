@@ -12,3 +12,7 @@ class RedshiftVariableManager():
     def get_ds_name(self, ds_key):
         # get staging dataset name
         return Variable.get(ds_key)
+    
+    def get_dim_load_mode(self, mode_key):
+        # get load mode for dimension tables
+        return Variable.get(mode_key)

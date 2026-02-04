@@ -15,6 +15,7 @@ class LoadFactOperator(BaseOperator):
 
     def execute(self, context):
         pg_hook = PostgresHook(postgres_conn_id=self.conn_id)
+        # append data on each DAG run
         insert_sql_stmt = f'INSERT INTO {self.ds_name} {self.sql}'
         records = pg_hook.get_records(self.sql)
 

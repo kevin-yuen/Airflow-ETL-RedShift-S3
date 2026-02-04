@@ -43,7 +43,3 @@ class StagingDataQualityOperator(BaseOperator):
                         raise AirflowException(f'{self.ds_name} staging has failed the column uniqueness check.')
                     
                     self.log.info(f'{self.ds_name} staging has passed the column uniqueness check.')
-
-
-
-             

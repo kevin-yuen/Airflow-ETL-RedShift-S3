@@ -123,13 +123,13 @@ class SqlQueries:
         return row_count_sql
     
     @staticmethod
-    def check_uniqueness(staging_table, cols):
+    def check_uniqueness(table, cols):
         # check uniqueness on critical columns that form the composite natural key
         uniqueness_cnt_sql = f"""
         SELECT COUNT(*)
         FROM (
             SELECT {cols}
-            FROM {staging_table}
+            FROM {table}
             GROUP BY {cols}
             HAVING COUNT(*) > 1
         )
@@ -205,3 +205,14 @@ class SqlQueries:
         "level" varchar(256)
     );
     """
+
+    @staticmethod
+    def check_fk_integrity(ds1, ds2, pk1, pk2):
+        fk_integrity_cnt_sql = f"""
+        SELECT COUNT(*)
+        FROM {ds1} ds1
+        LEFT JOIN {ds2} ds2
+            ON ds1.{pk1} = ds2.{pk2}
+        WHERE ds2.{pk2} IS NULL
+        """
+        return fk_integrity_cnt_sql

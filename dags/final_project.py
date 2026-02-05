@@ -11,7 +11,8 @@ from operators import (
     LoadFactOperator,
     FactDataQualityOperator,
     CreateDimensionOperator,
-    LoadDimensionOperator
+    LoadDimensionOperator,
+    DimDataQualityOperator
 )
 
 
@@ -217,9 +218,38 @@ def final_project():
         sql=sql_queries.user_table_insert
     )
 
-    # # run_quality_checks = DataQualityOperator(
-    # #     task_id='Run_data_quality_checks',
-    # # )
+    # data quality check on dimension tables
+    dq_types = [
+        'dim_row_count_check',
+        'dim_null_pk_check',
+        'dim_pk_uniqueness_check',
+        'dim_fk_integrity_check'
+    ]
+
+    dq_config = {
+        'artists_dim': {
+            'pk': 'artistid',
+            'dq_types': dq_types
+        },
+        'songs_dim': {
+            'pk': 'songid',
+            'dq_types': dq_types
+        },
+        'users_dim': {
+            'pk': 'userid',
+            'dq_types': dq_types
+        },
+        'time_dim': {
+            'pk': 'start_time',
+            'dq_types': dq_types
+        },
+    }
+
+    run_data_quality_checks = DimDataQualityOperator(
+        task_id='run_data_quality_checks',
+        conn_id=conn_id,
+        dq_config=dq_config
+    )
 
     # dependencies
     start_operator >> [
@@ -232,6 +262,6 @@ def final_project():
             create_songs_dim_table >> load_songs_dim_table,
             create_time_dim_table >> load_time_dim_table,
             create_users_dim_table >> load_users_dim_table
-        ]
+        ] >> run_data_quality_checks
 
 final_project_dag = final_project()

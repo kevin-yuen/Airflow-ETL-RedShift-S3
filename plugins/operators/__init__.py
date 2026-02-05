@@ -6,6 +6,7 @@ from operators.load_fact import LoadFactOperator
 from operators.fact_data_quality import FactDataQualityOperator
 from operators.create_dimension import CreateDimensionOperator
 from operators.load_dimension import LoadDimensionOperator
+from operators.dim_data_quality import DimDataQualityOperator
 
 __all__ = [
     'CreateStageOperator',
@@ -15,5 +16,6 @@ __all__ = [
     'LoadFactOperator',
     'FactDataQualityOperator',
     'CreateDimensionOperator',
-    'LoadDimensionOperator'
+    'LoadDimensionOperator',
+    'DimDataQualityOperator'
 ]

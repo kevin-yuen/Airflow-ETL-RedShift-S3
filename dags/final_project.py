@@ -251,6 +251,9 @@ def final_project():
         dq_config=dq_config
     )
 
+    ###### DAG run ends here ######
+    end_operator = EmptyOperator(task_id='End_execution')
+
     # dependencies
     start_operator >> [
         create_songs_staging_table >> stg_songs_to_redshift >> stg_songs_dq_check,
@@ -262,6 +265,6 @@ def final_project():
             create_songs_dim_table >> load_songs_dim_table,
             create_time_dim_table >> load_time_dim_table,
             create_users_dim_table >> load_users_dim_table
-        ] >> run_data_quality_checks
+        ] >> run_data_quality_checks >> end_operator
 
 final_project_dag = final_project()

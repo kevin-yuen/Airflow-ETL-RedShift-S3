@@ -152,7 +152,7 @@ class SqlQueries:
 
     create_songplays_fact_table = """
     CREATE TABLE IF NOT EXISTS songplays_fact (
-        playid varchar(32) NOT NULL,
+        songplay_id varchar(32) NOT NULL,
         start_time timestamp NOT NULL,
         userid int4 NOT NULL,
         "level" varchar(256),
@@ -205,14 +205,3 @@ class SqlQueries:
         "level" varchar(256)
     );
     """
-
-    @staticmethod
-    def check_fk_integrity(ds1, ds2, pk1, pk2):
-        fk_integrity_cnt_sql = f"""
-        SELECT COUNT(*)
-        FROM {ds1} ds1
-        LEFT JOIN {ds2} ds2
-            ON ds1.{pk1} = ds2.{pk2}
-        WHERE ds2.{pk2} IS NULL
-        """
-        return fk_integrity_cnt_sql

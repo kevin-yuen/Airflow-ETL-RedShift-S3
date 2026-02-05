@@ -219,27 +219,22 @@ def final_project():
     )
 
     # data quality check on dimension tables
-    dq_types = [
-        'dim_row_count_check',
-        'dim_null_pk_check',
-        'dim_pk_uniqueness_check',
-        'dim_fk_integrity_check'
-    ]
+    dq_types = redshift_var_mgr.get_dq_checks('dq_checks').split(', ')
 
     dq_config = {
-        'artists_dim': {
+        artists_dim_ds_name: {
             'pk': 'artistid',
             'dq_types': dq_types
         },
-        'songs_dim': {
+        songs_dim_ds_name: {
             'pk': 'songid',
             'dq_types': dq_types
         },
-        'users_dim': {
+        users_dim_ds_name: {
             'pk': 'userid',
             'dq_types': dq_types
         },
-        'time_dim': {
+        time_dim_ds_name: {
             'pk': 'start_time',
             'dq_types': dq_types
         },

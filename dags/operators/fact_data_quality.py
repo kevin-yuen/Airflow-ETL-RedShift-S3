@@ -29,8 +29,8 @@ class FactDataQualityOperator(BaseOperator):
 
                     if row_cnt_fact_result == 0:
                         raise AirflowException('Fact table has zero records.')
-                    elif row_cnt_fact_result > nextsong_events_cnt:
-                        raise AirflowException('Fact table contains more records than NextSong events. Possible duplication.')
+                    elif row_cnt_fact_result < nextsong_events_cnt:
+                        raise AirflowException('Fact table contains fewer records than NextSong events.')
                     
                     self.log.info(f'{self.ds_name} fact record count is within the expected range relative to NextSong events.')
                 case 'uniqueness_cnt_check_fact':

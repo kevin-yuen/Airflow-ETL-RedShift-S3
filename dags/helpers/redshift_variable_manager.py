@@ -16,3 +16,7 @@ class RedshiftVariableManager():
     def get_dim_load_mode(self, mode_key):
         # get load mode for dimension tables
         return Variable.get(mode_key)
+    
+    def get_dq_checks(self, dq_key):
+        # get data quality checks for dimension tables
+        return Variable.get(dq_key)

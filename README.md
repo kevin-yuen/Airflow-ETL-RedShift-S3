@@ -1,69 +1,238 @@
-# Data Pipelines with Airflow
+# Airflow ETL Pipeline: Amazon S3 → Amazon Redshift Data Warehouse
 
-Welcome to the Data Pipelines with Airflow project! This endeavor will provide you with a solid understanding of Apache Airflow's core concepts. Your task involves creating custom operators to execute essential functions like staging data, populating a data warehouse, and validating data through the pipeline.
+## Overview
 
-To begin, we've equipped you with a project template that streamlines imports and includes four unimplemented operators. These operators need your attention to turn them into functional components of a data pipeline. The template also outlines tasks that must be interconnected for a coherent and logical data flow.
+This project demonstrates the design and implementation of an end-to-end ETL pipeline using **Apache Airflow**, **Amazon S3**, and **Amazon Redshift**. The pipeline ingests semi-structured JSON data from Amazon S3, stages the data in Amazon Redshift, transforms it into a star schema, and performs automated data quality validation throughout the workflow.
 
-A helper class containing all necessary SQL transformations is at your disposal. While you won't have to write the ETL processes, your responsibility lies in executing them using your custom operators.
+The project emphasizes modular pipeline design, reusable custom Airflow operators, configurable execution modes, and production-oriented engineering practices.
 
-## Initiating the Airflow Web Server
-Ensure [Docker Desktop](https://www.docker.com/products/docker-desktop/) is installed before proceeding.
+---
 
-To bring up the entire app stack up, we use [docker-compose](https://docs.docker.com/engine/reference/commandline/compose_up/) as shown below
+## Architecture
 
-```bash
-docker-compose up -d
 ```
-Visit http://localhost:8080 once all containers are up and running.
+Amazon S3
+     │
+     ▼
+Staging Tables (Redshift)
+     │
+     ▼
+Data Quality Validation
+     │
+     ▼
+Fact Table
+     │
+     ▼
+Data Quality Validation
+     │
+     ▼
+Dimension Tables
+     │
+     ▼
+Final Data Quality Validation
+```
 
-## Configuring Connections in the Airflow Web Server UI
-![Airflow Web Server UI. Credentials: `airflow`/`airflow`.](assets/login.png)
+---
 
-On the Airflow web server UI, use `airflow` for both username and password.
-* Post-login, navigate to **Admin > Connections** to add required connections - specifically, `aws_credentials` and `redshift`.
-* Don't forget to start your Redshift cluster via the AWS console.
-* After completing these steps, run your DAG to ensure all tasks are successfully executed.
+## Features
 
-## Getting Started with the Project
-1. The project template package comprises three key components:
-   * The **DAG template** includes imports and task templates but lacks task dependencies.
-   * The **operators** folder with operator templates.
-   * A **helper class** for SQL transformations.
+* End-to-end orchestration using Apache Airflow
+* Automated ingestion of JSON files from Amazon S3
+* Amazon Redshift staging, fact, and dimension tables
+* Custom Airflow operators for reusable pipeline components
+* Configurable table loading strategies
+* Configurable append or truncate-insert loading for dimension tables
+* Configurable drop-and-rebuild mode for warehouse initialization
+* Automated data quality validation between pipeline stages
+* Modular SQL helper classes
+* Reusable helper utilities for configuration and Redshift variables
+* Comprehensive task logging and failure handling
 
-1. With these template files, you should see the new DAG in the Airflow UI, with a graph view resembling the screenshot below:
-![Project DAG in the Airflow UI](assets/final_project_dag_graph1.png)
-You should be able to execute the DAG successfully, but if you check the logs, you will see only `operator not implemented` messages.
+---
 
-## DAG Configuration
-In the DAG, add `default parameters` based on these guidelines:
-* No dependencies on past runs.
-* Tasks are retried three times on failure.
-* Retries occur every five minutes.
-* Catchup is turned off.
-* No email on retry.
+## Technology Stack
 
-Additionally, configure task dependencies to match the flow depicted in the image below:
-![Working DAG with correct task dependencies](assets/final_project_dag_graph2.png)
+* Python
+* Apache Airflow
+* Amazon Redshift
+* Amazon S3
+* PostgreSQL Hook
+* Boto3
+* SQL
 
-## Developing Operators
-To complete the project, build four operators for staging data, transforming data, and performing data quality checks. While you can reuse code from Project 2, leverage Airflow's built-in functionalities like connections and hooks whenever possible to let Airflow handle the heavy lifting.
+---
 
-### Stage Operator
-Load any JSON-formatted files from S3 to Amazon Redshift using the stage operator. The operator should create and run a SQL COPY statement based on provided parameters, distinguishing between JSON files. It should also support loading timestamped files from S3 based on execution time for backfills.
+## Data Warehouse Design
 
-### Fact and Dimension Operators
-Utilize the provided SQL helper class for data transformations. These operators take a SQL statement, target database, and optional target table as input. For dimension loads, implement the truncate-insert pattern, allowing for switching between insert modes. Fact tables should support append-only functionality.
+The warehouse follows a **star schema** consisting of:
 
-### Data Quality Operator
-Create the data quality operator to run checks on the data using SQL-based test cases and expected results. The operator should raise an exception and initiate task retry and eventual failure if test results don't match expectations.
+### Fact Table
 
-## Reviewing Starter Code
-Before diving into development, familiarize yourself with the following files:
-- [plugins/operators/data_quality.py](plugins/operators/data_quality.py)
-- [plugins/operators/load_fact.py](plugins/operators/load_fact.py)
-- [plugins/operators/load_dimension.py](plugins/operators/load_dimension.py)
-- [plugins/operators/stage_redshift.py](plugins/operators/stage_redshift.py)
-- [plugins/helpers/sql_queries.py](plugins/helpers/sql_queries.py)
-- [dags/final_project.py](dags/final_project.py)
+* `fact_songplays`
 
-Now you're ready to embark on this exciting journey into the world of Data Pipelines with Airflow!
+### Dimension Tables
+
+* `dim_users`
+* `dim_songs`
+* `dim_artists`
+* `dim_time`
+
+Raw data is first loaded into Redshift staging tables before being transformed into analytical tables.
+
+---
+
+## Custom Airflow Operators
+
+This project implements several reusable custom operators.
+
+### CreateStageOperator
+
+* Creates staging tables
+* Supports configurable table recreation or truncation
+* Executes multiple SQL statements
+
+### StageToRedshiftOperator
+
+* Reads JSON files from Amazon S3
+* Supports recursive S3 directory traversal
+* Executes Redshift COPY commands
+* Performs guardrail validation before staging
+
+### CreateFactOperator
+
+* Creates and loads fact tables
+* Supports append-only loading strategy
+* Designed for scalable fact table ingestion
+
+### CreateDimensionOperator
+
+* Creates and loads dimension tables
+* Supports:
+
+  * Append mode
+  * Truncate-insert mode
+  * Optional table recreation
+
+### DataQualityOperator
+
+Performs automated validation including:
+
+* Table contains data
+* Expected row counts
+* Primary key uniqueness
+* Null checks on critical columns
+* Fact-to-dimension referential integrity validation
+
+Pipeline execution stops immediately if any validation fails.
+
+---
+
+## Data Quality Checks
+
+The pipeline validates data after each major loading phase.
+
+### Staging Validation
+
+* S3 objects exist before loading
+* Staging tables contain data after COPY
+
+### Fact Table Validation
+
+* Expected number of records loaded
+* Primary key uniqueness
+* Null checks on critical columns
+
+### Dimension Table Validation
+
+* Row count validation
+* Primary key uniqueness
+* Null checks
+* Foreign key integrity against the fact table
+
+These validations help ensure that downstream analytics are built on trustworthy data.
+
+---
+
+## Project Structure
+
+```
+dags/
+│
+├── final_project.py
+│
+├── helpers/
+│   ├── sql_queries.py
+│   ├── redshift_variable_manager.py
+│   ├── table_helper.py
+│   └── ...
+│
+├── operators/
+│   ├── create_stage.py
+│   ├── stage_redshift.py
+│   ├── create_fact.py
+│   ├── create_dimension.py
+│   └── data_quality.py
+```
+
+---
+
+## Pipeline Configuration
+
+The DAG supports configurable execution modes.
+
+### Warehouse Rebuild
+
+```python
+params = {
+    "drop_tables": False
+}
+```
+
+When enabled, staging, fact, and dimension tables are dropped and recreated before loading.
+
+### Dimension Loading Mode
+
+Supported loading strategies include:
+
+* Append
+* Truncate-Insert
+
+This allows the pipeline to simulate different warehouse loading patterns.
+
+---
+
+## Engineering Highlights
+
+This project demonstrates:
+
+* ETL pipeline orchestration
+* Object-oriented Python design
+* Custom Airflow operator development
+* Reusable helper modules
+* SQL transformation design
+* Star schema data modeling
+* Data quality framework implementation
+* Error handling and pipeline guardrails
+* Cloud data warehouse integration
+* Modular, maintainable project architecture
+
+---
+
+## Learning Outcomes
+
+Through this project I gained practical experience in:
+
+* Building production-style ETL pipelines
+* Designing dimensional data models
+* Developing reusable Airflow operators
+* Implementing automated data quality validation
+* Working with Amazon S3 and Amazon Redshift
+* Applying modular software engineering principles to data engineering workflows
+
+---
+
+## Author
+
+**Kevin Yuen**
+
+Data Engineer with experience designing data pipelines, cloud-based ETL workflows, and data warehouse solutions using Python, SQL, Apache Airflow, and Amazon Web Services.

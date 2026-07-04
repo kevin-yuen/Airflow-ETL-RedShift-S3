@@ -228,11 +228,3 @@ Through this project I gained practical experience in:
 * Implementing automated data quality validation
 * Working with Amazon S3 and Amazon Redshift
 * Applying modular software engineering principles to data engineering workflows
-
----
-
-## Author
-
-**Kevin Yuen**
-
-Data Engineer with experience designing data pipelines, cloud-based ETL workflows, and data warehouse solutions using Python, SQL, Apache Airflow, and Amazon Web Services.
